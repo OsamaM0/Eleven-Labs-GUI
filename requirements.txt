@@ -1,0 +1,7 @@
+streamlit
+pydub
+requests
+moviepy<2.0.0
+elevenlabs
+python-dotenv
+PyQt5
