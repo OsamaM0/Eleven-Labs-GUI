@@ -62,5 +62,5 @@ def replace_video_audio(video_path, new_audio_path, output_path):
     video = VideoFileClip(video_path)
     new_audio = AudioFileClip(new_audio_path)
     video = video.set_audio(new_audio)
-    video.write_videofile(output_path)
+    video.write_videofile(output_path, codec="libx264", audio_codec="aac")
     return output_path
