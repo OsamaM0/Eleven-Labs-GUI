@@ -1,8 +1,12 @@
 import os
 import math
 import streamlit as st
-from models import elevenlabs_api
+from voice_changer import VoiceChanger
 from models.media_processor import segment_media, merge_audio, is_video_file, replace_video_audio
+from config import MAX_SEGMENT_DURATION_MS  # Import configuration value
+
+# Initialize the voice changer
+voice_changer = VoiceChanger()
 
 def process_voice_change(input_file_path, voice_option):
     # Determine if we're processing video or audio
@@ -14,12 +18,21 @@ def process_voice_change(input_file_path, voice_option):
     
     processed_segments = []
     total_segments = len(segments)
+    total_cost = 0
     
     st.info(f"Processing {total_segments} segments...")
     for i, seg in enumerate(segments):
         st.write(f"Processing segment {i+1}/{total_segments}")
-        processed_seg = elevenlabs_api.voice_change_audio_segment(seg, voice_option["id"])
-        processed_segments.append(processed_seg)
+        success, result = voice_changer.change_voice(
+            input_audio_path=seg,
+            voice_id=voice_option["id"]
+        )
+        
+        if not success:
+            st.error(f"Error processing segment {i+1}: {result}")
+            raise Exception(result)
+            
+        processed_segments.append(result)
     
     # Create the base file path for output
     base_name, ext = os.path.splitext(input_file_path)
@@ -34,7 +47,8 @@ def process_voice_change(input_file_path, voice_option):
     audio = AudioSegment.from_file(merged_audio)
     duration_ms = len(audio)
     total_minutes = math.ceil(duration_ms / 60000)
-    total_cost = elevenlabs_api.calculate_cost(total_minutes, voice_option["price_per_min"])
+    # Use the price from the voice option if available, otherwise None to use default
+    total_cost = voice_changer.calculate_cost(total_minutes, voice_option.get("price_per_min", None))
     
     # If we're processing video, replace the audio in the video
     if is_video:

@@ -3,11 +3,15 @@ import tempfile
 import os
 import time
 from controllers import voice_changer_controller
-from models import elevenlabs_api
+from voice_changer import VoiceChanger
 from models.media_processor import is_video_file, extract_audio_from_video
+from config import MAX_SEGMENT_DURATION_MS  # Import configuration values
 
 st.title("Eleven Labs Voice Changer")
 st.markdown("### Upload your audio or video file")
+
+# Initialize voice changer
+voice_changer = VoiceChanger()
 
 # Update file uploader to accept more formats
 uploaded_file = st.file_uploader("Choose an audio or video file", 
@@ -17,7 +21,7 @@ uploaded_file = st.file_uploader("Choose an audio or video file",
 @st.cache_data(ttl=3600)  # Cache for 1 hour
 def get_voices():
     with st.spinner("Loading available voices..."):
-        return elevenlabs_api.get_voice_options()
+        return voice_changer.get_available_voices()
 
 voice_options = get_voices()
 selected_voice_name = st.selectbox("Select Voice", [f"{voice} ({voice_options[voice]['accent']} - {voice_options[voice]['description']} - {voice_options[voice]['age']} - {voice_options[voice]['gender']} - {voice_options[voice]['use_case']})" for voice in voice_options.keys()])
@@ -51,17 +55,19 @@ if uploaded_file:
         from pydub import AudioSegment
         audio = AudioSegment.from_file(input_path)
     
-    # Calculate cost preview
+    # Calculate cost preview using configuration
     duration_minutes = len(audio) / 60000
-    estimated_cost = elevenlabs_api.calculate_cost(duration_minutes, selected_voice["price_per_min"])
+    # Use the calculate_cost method from VoiceChanger which should use config values
+    estimated_cost = voice_changer.calculate_cost(duration_minutes, selected_voice.get("price_per_min", None))
     
     # Display processing information
     st.markdown(f"### Audio Information:")
     st.markdown(f"- Duration: {duration_minutes:.2f} minutes")
     st.markdown(f"- Estimated Cost: ${estimated_cost}")
     
-    num_chunks = (len(audio) + 240000 - 1) // 240000  # Calculate how many 4-minute chunks
-    st.markdown(f"- File will be processed in {num_chunks} chunk(s) of 4 minutes or less")
+    # Calculate number of chunks based on config value, not hardcoded 240000
+    num_chunks = (len(audio) + MAX_SEGMENT_DURATION_MS - 1) // MAX_SEGMENT_DURATION_MS
+    st.markdown(f"- File will be processed in {num_chunks} chunk(s) of {MAX_SEGMENT_DURATION_MS/60000:.1f} minutes or less")
     
     if st.button("Change Voice"):
         progress_bar = st.progress(0)
